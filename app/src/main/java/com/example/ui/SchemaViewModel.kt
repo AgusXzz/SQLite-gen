@@ -28,15 +28,28 @@ class SchemaViewModel(application: Application) : AndroidViewModel(application) 
     val allTables: StateFlow<List<TableWithColumns>> = repository.allTablesWithColumns
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    /** True if another table already uses [name] (case-insensitive, trimmed). */
+    fun isTableNameTaken(name: String, excludeTableId: Long? = null): Boolean {
+        val target = name.trim().lowercase()
+        if (target.isEmpty()) return false
+        return allTables.value.any {
+            it.table.tableId != excludeTableId && it.table.name.trim().lowercase() == target
+        }
+    }
+
     fun addTable(name: String) {
+        val clean = name.trim()
+        if (clean.isEmpty() || isTableNameTaken(clean)) return
         viewModelScope.launch {
-            repository.addTable(name)
+            repository.addTable(clean)
         }
     }
 
     fun updateTable(table: TableEntity) {
+        val clean = table.name.trim()
+        if (clean.isEmpty() || isTableNameTaken(clean, excludeTableId = table.tableId)) return
         viewModelScope.launch {
-            repository.updateTable(table)
+            repository.updateTable(table.copy(name = clean))
         }
     }
 
@@ -47,11 +60,20 @@ class SchemaViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun addColumn(tableId: Long) {
+        val existing = allTables.value.find { it.table.tableId == tableId }
+            ?.columns?.map { it.name.trim().lowercase() } ?: emptyList()
+        var name = "new_column"
+        var i = 1
+        while (existing.contains(name.lowercase())) {
+            name = "new_column_$i"
+            i++
+        }
+        val uniqueName = name
         viewModelScope.launch {
             repository.addColumn(
                 ColumnEntity(
                     tableId = tableId,
-                    name = "new_column",
+                    name = uniqueName,
                     type = "TEXT"
                 )
             )

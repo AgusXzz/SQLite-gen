@@ -123,8 +123,17 @@ fun TableDetailPane(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 items(tableWithCols.columns, key = { it.columnId }) { column ->
+                    val duplicateName = column.name.isNotBlank() && tableWithCols.columns.any {
+                        it.columnId != column.columnId &&
+                            it.name.trim().equals(column.name.trim(), ignoreCase = true)
+                    }
                     ColumnEditorCard(
                         column = column,
+                        nameError = when {
+                            column.name.isBlank() -> "Name can't be empty"
+                            duplicateName -> "Duplicate column name"
+                            else -> null
+                        },
                         onUpdate = { viewModel.updateColumn(it) },
                         onDelete = { viewModel.deleteColumn(column) },
                         modifier = Modifier.animateItem()
@@ -136,6 +145,9 @@ fun TableDetailPane(
     }
 
     if (showEditNameDialog) {
+        val isDuplicate = editName.isNotBlank() && allTables.any {
+            it.table.tableId != tableId && it.table.name.trim().equals(editName.trim(), ignoreCase = true)
+        }
         AlertDialog(
             onDismissRequest = { showEditNameDialog = false },
             icon = { Icon(Icons.Default.Edit, contentDescription = null) },
@@ -145,12 +157,16 @@ fun TableDetailPane(
                     value = editName,
                     onValueChange = { editName = it },
                     label = { Text("Table Name") },
-                    singleLine = true
+                    singleLine = true,
+                    isError = isDuplicate,
+                    supportingText = if (isDuplicate) {
+                        { Text("A table with this name already exists") }
+                    } else null
                 )
             },
             confirmButton = {
                 Button(
-                    enabled = editName.isNotBlank(),
+                    enabled = editName.isNotBlank() && !isDuplicate,
                     onClick = {
                         viewModel.updateTable(tableWithCols.table.copy(name = editName.trim()))
                         showEditNameDialog = false
@@ -194,6 +210,7 @@ fun DetailPlaceholder(message: String, modifier: Modifier = Modifier) {
 @Composable
 fun ColumnEditorCard(
     column: ColumnEntity,
+    nameError: String?,
     onUpdate: (ColumnEntity) -> Unit,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier
@@ -216,6 +233,8 @@ fun ColumnEditorCard(
                     onValueChange = { onUpdate(column.copy(name = it)) },
                     label = { Text("Column Name") },
                     singleLine = true,
+                    isError = nameError != null,
+                    supportingText = nameError?.let { { Text(it) } },
                     modifier = Modifier.weight(1f)
                 )
                 IconButton(onClick = onDelete) {

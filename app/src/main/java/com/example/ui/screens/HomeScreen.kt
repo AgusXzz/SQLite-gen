@@ -111,6 +111,8 @@ fun TableListPane(
     }
 
     if (showAddDialog) {
+        val isDuplicate = newTableName.isNotBlank() &&
+            tables.any { it.table.name.trim().equals(newTableName.trim(), ignoreCase = true) }
         AlertDialog(
             onDismissRequest = { showAddDialog = false; newTableName = "" },
             icon = { Icon(Icons.Outlined.TableChart, contentDescription = null) },
@@ -120,12 +122,16 @@ fun TableListPane(
                     value = newTableName,
                     onValueChange = { newTableName = it },
                     label = { Text("Table Name") },
-                    singleLine = true
+                    singleLine = true,
+                    isError = isDuplicate,
+                    supportingText = if (isDuplicate) {
+                        { Text("A table with this name already exists") }
+                    } else null
                 )
             },
             confirmButton = {
                 Button(
-                    enabled = newTableName.isNotBlank(),
+                    enabled = newTableName.isNotBlank() && !isDuplicate,
                     onClick = {
                         viewModel.addTable(newTableName.trim())
                         showAddDialog = false
