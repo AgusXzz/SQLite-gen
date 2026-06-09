@@ -15,7 +15,7 @@ object AiColumnGenerator {
         val existingStr = if (existingTables.isNotEmpty()) "Tabel lain yang sudah ada: ${existingTables.joinToString(", ")}." else ""
         val prompt = "Buatkan schema kolom secara otomatis untuk tabel bernama '$tableName'. " +
                 "$existingStr " +
-                "Kembalikan hanya JSON sesuai schema. Tentukan primary key, berikan id atau uuid yang relevan. Jika ada relasi dengan tabel lain, set foreignKeyReferences (contoh 'users(id)'). Gunakan data type SQLite seperti INTEGER, TEXT, REAL, BLOB, NUMERIC."
+                "Kembalikan hanya JSON sesuai schema. Tentukan primary key, berikan id atau uuid yang relevan. Jika ada relasi dengan tabel lain, set foreignKeyReferences (contoh 'users(id)'). Gunakan data type SQLite seperti TEXT: Used if the type name contains strings like CHAR, CLOB, or VARCHAR.NUMERIC: Used if the type name contains NUMERIC, DECIMAL, BOOLEAN, DATE, or DATETIME.INTEGER: Used if the type name contains INT (e.g., INT, BIGINT, TINYINT).REAL: Used if the type name contains REAL, DOUBLE, or FLOAT.NONE (or BLOB): Used if no type is declared or if the type name contains BLOB"
         
         val jsonObj = JSONObject().apply {
             put("gameId", "6118a90e-082c-4130-803b-7bae405f5145")
