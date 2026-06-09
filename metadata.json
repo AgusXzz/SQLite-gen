@@ -1,0 +1,6 @@
+{
+  "name": "SQLite Schema",
+  "description": "Generate better-sqlite3 tables and schemas.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
