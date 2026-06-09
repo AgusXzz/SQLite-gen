@@ -1,38 +1,43 @@
 package com.example.ui
 
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.runtime.Composable
-import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import androidx.navigation.navArgument
 import com.example.ui.screens.CodePreviewScreen
-import com.example.ui.screens.HomeScreen
 import com.example.ui.screens.ImportExportScreen
-import com.example.ui.screens.TableDetailScreen
+import com.example.ui.screens.SchemaListDetailScreen
 
 @Composable
 fun AppNavigation(viewModel: SchemaViewModel) {
     val navController = rememberNavController()
+    val anim = 300
 
-    NavHost(navController = navController, startDestination = "home") {
-        composable("home") {
-            HomeScreen(
+    NavHost(
+        navController = navController,
+        startDestination = "list_detail",
+        enterTransition = {
+            slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Start, tween(anim)) + fadeIn(tween(anim))
+        },
+        exitTransition = {
+            slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Start, tween(anim)) + fadeOut(tween(anim))
+        },
+        popEnterTransition = {
+            slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.End, tween(anim)) + fadeIn(tween(anim))
+        },
+        popExitTransition = {
+            slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.End, tween(anim)) + fadeOut(tween(anim))
+        }
+    ) {
+        composable("list_detail") {
+            SchemaListDetailScreen(
                 viewModel = viewModel,
-                onNavigateToTable = { tableId -> navController.navigate("table/$tableId") },
                 onNavigateToCode = { navController.navigate("code") },
                 onNavigateToImportExport = { navController.navigate("import_export") }
-            )
-        }
-        composable(
-            "table/{tableId}",
-            arguments = listOf(navArgument("tableId") { type = NavType.LongType })
-        ) { backStackEntry ->
-            val tableId = backStackEntry.arguments?.getLong("tableId") ?: return@composable
-            TableDetailScreen(
-                tableId = tableId,
-                viewModel = viewModel,
-                onBack = { navController.popBackStack() }
             )
         }
         composable("code") {

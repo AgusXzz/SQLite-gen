@@ -1,30 +1,38 @@
 package com.example.ui.screens
 
 import android.widget.Toast
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.outlined.ViewColumn
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.ui.SchemaViewModel
 import com.example.data.ColumnEntity
+import com.example.ui.theme.sqliteTypeColors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TableDetailScreen(
+fun TableDetailPane(
     tableId: Long,
     viewModel: SchemaViewModel,
+    showBack: Boolean,
     onBack: () -> Unit
 ) {
     val allTables by viewModel.allTables.collectAsStateWithLifecycle()
@@ -32,22 +40,26 @@ fun TableDetailScreen(
 
     val context = LocalContext.current
     var isGenerating by remember { mutableStateOf(false) }
-
-    if (tableWithCols == null) {
-        onBack()
-        return
-    }
-
     var showEditNameDialog by remember { mutableStateOf(false) }
     var editName by remember { mutableStateOf("") }
+
+    if (tableWithCols == null) {
+        DetailPlaceholder("This table no longer exists.")
+        return
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text(tableWithCols.table.name) },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer
+                ),
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    if (showBack) {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        }
                     }
                 },
                 actions = {
@@ -67,11 +79,15 @@ fun TableDetailScreen(
                             }
                         )
                     }) {
-                         if (isGenerating) {
-                             CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.onSurface)
-                         } else {
-                             Icon(Icons.Default.Refresh, contentDescription = "Auto Generate schema")
-                         }
+                        if (isGenerating) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(22.dp),
+                                strokeWidth = 2.dp,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        } else {
+                            Icon(Icons.Default.AutoAwesome, contentDescription = "Auto Generate schema")
+                        }
                     }
                     IconButton(onClick = {
                         editName = tableWithCols.table.name
@@ -83,28 +99,38 @@ fun TableDetailScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(
+            ExtendedFloatingActionButton(
                 onClick = { viewModel.addColumn(tableId) },
-                containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "Add Column")
-            }
+                icon = { Icon(Icons.Default.Add, contentDescription = null) },
+                text = { Text("Column") }
+            )
         }
     ) { paddingValues ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .imePadding(),
-            contentPadding = PaddingValues(bottom = 80.dp)
-        ) {
-            items(tableWithCols.columns, key = { it.columnId }) { column ->
-                ColumnEditorCard(
-                    column = column,
-                    onUpdate = { viewModel.updateColumn(it) },
-                    onDelete = { viewModel.deleteColumn(column) }
-                )
+        if (tableWithCols.columns.isEmpty()) {
+            DetailPlaceholder(
+                message = "No columns yet. Add one with the button, or tap ✨ to let AI suggest a schema.",
+                modifier = Modifier.padding(paddingValues)
+            )
+        } else {
+            LazyVerticalGrid(
+                columns = GridCells.Adaptive(minSize = 340.dp),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+                    .imePadding(),
+                contentPadding = PaddingValues(16.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(tableWithCols.columns, key = { it.columnId }) { column ->
+                    ColumnEditorCard(
+                        column = column,
+                        onUpdate = { viewModel.updateColumn(it) },
+                        onDelete = { viewModel.deleteColumn(column) },
+                        modifier = Modifier.animateItem()
+                    )
+                }
+                item { Spacer(Modifier.height(72.dp)) }
             }
         }
     }
@@ -112,51 +138,76 @@ fun TableDetailScreen(
     if (showEditNameDialog) {
         AlertDialog(
             onDismissRequest = { showEditNameDialog = false },
+            icon = { Icon(Icons.Default.Edit, contentDescription = null) },
             title = { Text("Edit Table Name") },
             text = {
                 OutlinedTextField(
                     value = editName,
                     onValueChange = { editName = it },
+                    label = { Text("Table Name") },
                     singleLine = true
                 )
             },
             confirmButton = {
-                Button(onClick = {
-                    if (editName.isNotBlank()) {
-                        viewModel.updateTable(tableWithCols.table.copy(name = editName))
+                Button(
+                    enabled = editName.isNotBlank(),
+                    onClick = {
+                        viewModel.updateTable(tableWithCols.table.copy(name = editName.trim()))
+                        showEditNameDialog = false
                     }
-                    showEditNameDialog = false
-                }) {
-                    Text("Save")
-                }
+                ) { Text("Save") }
             },
             dismissButton = {
-                TextButton(onClick = { showEditNameDialog = false }) {
-                    Text("Cancel")
-                }
+                TextButton(onClick = { showEditNameDialog = false }) { Text("Cancel") }
             }
         )
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DetailPlaceholder(message: String, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(32.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(
+                Icons.Outlined.ViewColumn,
+                contentDescription = null,
+                modifier = Modifier.size(48.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(16.dp))
+            Text(
+                message,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun ColumnEditorCard(
     column: ColumnEntity,
     onUpdate: (ColumnEntity) -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     var expandedType by remember { mutableStateOf(false) }
     val types = listOf("INTEGER", "TEXT", "BLOB", "REAL", "NUMERIC")
+    val isDark = androidx.compose.foundation.isSystemInDarkTheme()
+    val typeColors = sqliteTypeColors(column.type, isDark)
 
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+        modifier = modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        shape = RoundedCornerShape(20.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -164,82 +215,120 @@ fun ColumnEditorCard(
                     value = column.name,
                     onValueChange = { onUpdate(column.copy(name = it)) },
                     label = { Text("Column Name") },
+                    singleLine = true,
                     modifier = Modifier.weight(1f)
                 )
                 IconButton(onClick = onDelete) {
                     Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
                 }
             }
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                ExposedDropdownMenuBox(
-                    expanded = expandedType,
-                    onExpandedChange = { expandedType = !expandedType },
-                    modifier = Modifier.weight(1f)
-                ) {
-                    OutlinedTextField(
-                        value = column.type,
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("Data Type") },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedType) },
-                        modifier = Modifier.menuAnchor()
-                    )
-                    ExposedDropdownMenu(
-                        expanded = expandedType,
-                        onDismissRequest = { expandedType = false }
-                    ) {
-                        types.forEach { typeOption ->
-                            DropdownMenuItem(
-                                text = { Text(typeOption) },
-                                onClick = {
-                                    onUpdate(column.copy(type = typeOption))
-                                    expandedType = false
-                                }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            ExposedDropdownMenuBox(
+                expanded = expandedType,
+                onExpandedChange = { expandedType = !expandedType },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                OutlinedTextField(
+                    value = column.type,
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Data Type") },
+                    leadingIcon = {
+                        Surface(
+                            color = typeColors.container,
+                            shape = RoundedCornerShape(6.dp),
+                            modifier = Modifier.padding(start = 4.dp)
+                        ) {
+                            Text(
+                                column.type.take(3),
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = typeColors.content,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
                             )
                         }
+                    },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedType) },
+                    modifier = Modifier
+                        .menuAnchor()
+                        .fillMaxWidth()
+                )
+                ExposedDropdownMenu(
+                    expanded = expandedType,
+                    onDismissRequest = { expandedType = false }
+                ) {
+                    types.forEach { typeOption ->
+                        val tc = sqliteTypeColors(typeOption, isDark)
+                        DropdownMenuItem(
+                            text = { Text(typeOption) },
+                            leadingIcon = {
+                                Surface(color = tc.container, shape = RoundedCornerShape(6.dp)) {
+                                    Text(
+                                        typeOption.take(3),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = tc.content,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                                    )
+                                }
+                            },
+                            onClick = {
+                                onUpdate(column.copy(type = typeOption))
+                                expandedType = false
+                            }
+                        )
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
             OutlinedTextField(
                 value = column.defaultValue,
                 onValueChange = { onUpdate(column.copy(defaultValue = it)) },
                 label = { Text("Default Value") },
+                singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
             OutlinedTextField(
                 value = column.foreignKeyReferences,
                 onValueChange = { onUpdate(column.copy(foreignKeyReferences = it)) },
-                label = { Text("Foreign Key References (e.g. users(id))") },
+                label = { Text("Foreign Key (e.g. users(id))") },
+                singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Checkboxes
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                LabeledCheckbox("PK", column.isPrimaryKey) { onUpdate(column.copy(isPrimaryKey = it)) }
-                LabeledCheckbox("AutoInc", column.isAutoIncrement) { onUpdate(column.copy(isAutoIncrement = it)) }
-                LabeledCheckbox("NotNull", column.isNotNull) { onUpdate(column.copy(isNotNull = it)) }
-                LabeledCheckbox("Unique", column.isUnique) { onUpdate(column.copy(isUnique = it)) }
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FlagChip("Primary Key", column.isPrimaryKey) { onUpdate(column.copy(isPrimaryKey = it)) }
+                FlagChip("Auto Inc", column.isAutoIncrement) { onUpdate(column.copy(isAutoIncrement = it)) }
+                FlagChip("Not Null", column.isNotNull) { onUpdate(column.copy(isNotNull = it)) }
+                FlagChip("Unique", column.isUnique) { onUpdate(column.copy(isUnique = it)) }
             }
         }
     }
 }
 
 @Composable
-fun LabeledCheckbox(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Checkbox(checked = checked, onCheckedChange = onCheckedChange)
-        Text(text = label, style = MaterialTheme.typography.bodySmall)
-        Spacer(modifier = Modifier.width(4.dp))
-    }
+fun FlagChip(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+    FilterChip(
+        selected = checked,
+        onClick = { onCheckedChange(!checked) },
+        label = { Text(label) },
+        leadingIcon = if (checked) {
+            {
+                Icon(
+                    Icons.Default.Check,
+                    contentDescription = null,
+                    modifier = Modifier.size(FilterChipDefaults.IconSize)
+                )
+            }
+        } else null
+    )
 }
