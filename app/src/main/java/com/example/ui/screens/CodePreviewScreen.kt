@@ -14,9 +14,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.isSystemInDarkTheme
+import com.example.ui.theme.CodeSyntaxColors
+import com.example.ui.theme.codeSyntaxColors
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
@@ -293,6 +300,11 @@ private fun CodeBlock(code: String) {
         fontFamily = FontFamily.Monospace,
         lineHeight = 20.sp
     )
+    val plain = MaterialTheme.colorScheme.onSurface
+    val isDark = isSystemInDarkTheme()
+    val syntax = remember(isDark, plain) { codeSyntaxColors(isDark, plain) }
+    val highlighted = remember(lines, syntax) { lines.map { highlightCode(it, syntax) } }
+
     Row(
         modifier = Modifier
             .fillMaxSize()
@@ -317,16 +329,67 @@ private fun CodeBlock(code: String) {
                     .horizontalScroll(rememberScrollState())
                     .padding(end = 12.dp)
             ) {
-                lines.forEach { line ->
+                highlighted.forEach { line ->
                     Text(
-                        text = line.ifEmpty { " " },
+                        text = line,
                         style = codeStyle,
                         softWrap = false,
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = plain
                     )
                 }
             }
         }
+    }
+}
+
+private val SQL_KEYWORDS = setOf(
+    "CREATE", "TABLE", "IF", "NOT", "EXISTS", "PRIMARY", "KEY", "AUTOINCREMENT",
+    "UNIQUE", "DEFAULT", "REFERENCES", "FOREIGN", "NULL", "CONSTRAINT", "ON",
+    "DELETE", "CASCADE", "UPDATE", "INSERT", "INTO", "VALUES", "AND", "OR",
+    "CHECK", "BEGIN", "COMMIT", "PRAGMA", "DROP", "ALTER", "ADD", "COLUMN",
+    "INDEX", "SELECT", "FROM", "WHERE", "AS", "SET"
+)
+private val TYPE_KEYWORDS = setOf("INTEGER", "TEXT", "REAL", "BLOB", "NUMERIC")
+private val JS_KEYWORDS = setOf(
+    "const", "let", "var", "require", "new", "function", "return", "import",
+    "from", "export", "await", "async", "true", "false", "null", "void",
+    "typeof", "of", "in", "class", "this"
+)
+
+// comment | string | number | identifier
+private val tokenRegex = Regex(
+    "(--[^\\n]*|//[^\\n]*)" +
+        "|(\"(?:\\\\.|[^\"\\\\])*\"|'(?:\\\\.|[^'\\\\])*'|`(?:\\\\.|[^`\\\\])*`)" +
+        "|(\\d+(?:\\.\\d+)?)" +
+        "|([A-Za-z_][A-Za-z0-9_]*)"
+)
+
+/** Lightweight regex tokenizer that colors SQL + JS generated scripts per line. */
+private fun highlightCode(line: String, c: CodeSyntaxColors): AnnotatedString {
+    if (line.isEmpty()) return AnnotatedString(" ")
+    return buildAnnotatedString {
+        var last = 0
+        for (m in tokenRegex.findAll(line)) {
+            if (m.range.first > last) append(line.substring(last, m.range.first))
+            val text = m.value
+            val color = when {
+                m.groups[1] != null -> c.comment
+                m.groups[2] != null -> c.string
+                m.groups[3] != null -> c.number
+                else -> {
+                    val upper = text.uppercase()
+                    when {
+                        TYPE_KEYWORDS.contains(upper) -> c.type
+                        SQL_KEYWORDS.contains(upper) || JS_KEYWORDS.contains(text) -> c.keyword
+                        line.getOrNull(m.range.last + 1) == '(' -> c.function
+                        else -> c.plain
+                    }
+                }
+            }
+            withStyle(SpanStyle(color = color)) { append(text) }
+            last = m.range.last + 1
+        }
+        if (last < line.length) append(line.substring(last))
     }
 }
 

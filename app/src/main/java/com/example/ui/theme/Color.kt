@@ -79,6 +79,40 @@ val md_theme_dark_surfaceContainerHigh = Color(0xFF2A2930)
 val md_theme_dark_surfaceContainerHighest = Color(0xFF35343B)
 
 /**
+ * Palette used to syntax-highlight generated code. `plain` is supplied by the
+ * caller so it matches the surrounding theme text color.
+ */
+data class CodeSyntaxColors(
+    val keyword: Color,
+    val type: Color,
+    val string: Color,
+    val number: Color,
+    val comment: Color,
+    val function: Color,
+    val plain: Color,
+)
+
+/** Editor-style syntax colors that read well on the code surface in both schemes. */
+fun codeSyntaxColors(dark: Boolean, plain: Color): CodeSyntaxColors =
+    if (dark) CodeSyntaxColors(
+        keyword = Color(0xFF569CD6),
+        type = Color(0xFF4EC9B0),
+        string = Color(0xFFCE9178),
+        number = Color(0xFFB5CEA8),
+        comment = Color(0xFF7A9F60),
+        function = Color(0xFFDCDCAA),
+        plain = plain,
+    ) else CodeSyntaxColors(
+        keyword = Color(0xFF0033B3),
+        type = Color(0xFF1A7F8E),
+        string = Color(0xFF067D17),
+        number = Color(0xFF098658),
+        comment = Color(0xFF6A737D),
+        function = Color(0xFF795E26),
+        plain = plain,
+    )
+
+/**
  * Container/content color pair used by chips that label a SQLite data type.
  */
 data class TypeColors(val container: Color, val content: Color)
