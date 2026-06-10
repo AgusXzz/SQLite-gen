@@ -70,7 +70,7 @@ object AiColumnGenerator {
         if (!response.isSuccessful) {
             val err = response.body?.string() ?: ""
             if (response.code == 429) {
-                throw Exception("Rate Limit Reached: Limit pemanggilan AI sudah habis (LLM call limit reached). Silakan coba lagi nanti atau gunakan akun lain.")
+                throw Exception("Rate Limit Reached: Limit pemanggilan AI sudah habis. Silakan coba lagi nanti.")
             }
             throw Exception("AI API call failed: ${response.code} $err")
         }
